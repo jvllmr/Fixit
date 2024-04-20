@@ -10,6 +10,7 @@ import pkgutil
 import platform
 import sys
 from contextlib import contextmanager, ExitStack
+from functools import reduce
 from pathlib import Path
 from types import ModuleType
 from typing import (
@@ -19,6 +20,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Literal,
     Mapping,
     Optional,
     Sequence,
@@ -34,9 +36,12 @@ from packaging.version import InvalidVersion, Version
 from .format import FORMAT_STYLES
 from .ftypes import (
     Config,
+    CwdConfig,
     is_collection,
     is_sequence,
     Options,
+    OutputFormatType,
+    OutputFormatTypeInput,
     QualifiedRule,
     QualifiedRuleRegex,
     RawConfig,
@@ -54,7 +59,14 @@ else:
 
 FIXIT_CONFIG_FILENAMES = ("fixit.toml", ".fixit.toml", "pyproject.toml")
 FIXIT_LOCAL_MODULE = "fixit.local"
-DEFAULT_OUTPUT_FORMAT = "{path}@{start_line}:{start_col} {rule_name}: {message}"
+CWD_CONFIG_KEYS = ("output-format", "output-template")
+
+
+output_formats_templates: dict[OutputFormatType, str] = {
+    "fixit": "{path}@{start_line}:{start_col} {rule_name}: {message}",
+    "vscode": "{path}:{start_line}:{start_col} {rule_name}: {message}",
+}
+
 
 log = logging.getLogger(__name__)
 
@@ -392,7 +404,6 @@ def merge_configs(
     rule_options: RuleOptionsTable = {}
     target_python_version: Optional[Version] = Version(platform.python_version())
     target_formatter: Optional[str] = None
-    output_format: str = DEFAULT_OUTPUT_FORMAT
 
     def process_subpath(
         subpath: Path,
@@ -405,7 +416,6 @@ def merge_configs(
     ):
         nonlocal target_python_version
         nonlocal target_formatter
-        nonlocal output_format
 
         subpath = subpath.resolve()
         try:
@@ -456,13 +466,6 @@ def merge_configs(
         if data.pop("root", False):
             root = config.path.parent
 
-        if value := data.pop("output-format", False):
-            if root != config.path.parent:
-                raise ConfigError(
-                    "output-format not allowed in non-root configs", config=config
-                )
-            output_format = value
-
         if value := data.pop("enable-root-import", False):
             if root != config.path.parent:
                 raise ConfigError(
@@ -512,7 +515,8 @@ def merge_configs(
             )
 
         for key in data.keys():
-            log.warning("unknown configuration option %r", key)
+            if key not in CWD_CONFIG_KEYS:
+                log.warning("unknown configuration option %r", key)
 
     return Config(
         path=path,
@@ -523,7 +527,6 @@ def merge_configs(
         options=rule_options,
         python_version=target_python_version,
         formatter=target_formatter,
-        output_format=output_format,
     )
 
 
@@ -553,5 +556,37 @@ def generate_config(
         if options.rules:
             config.enable = list(options.rules)
             config.disable = []
+
+    return config
+
+
+def get_cwd_config(options: Optional[Options] = None) -> CwdConfig:
+    config = CwdConfig()
+    if options and options.config_file:
+        paths = [options.config_file]
+    else:
+        cwd = Path.cwd()
+        paths = locate_configs(cwd, cwd)
+
+    raw_configs = read_configs(paths)
+
+    output_format: Optional[OutputFormatTypeInput] = None
+    output_template: Optional[str] = None
+    for raw_config in raw_configs:
+
+        if output_format is None:
+            output_format = raw_config.data.get("output-format")
+        if output_template is None:
+            output_template = raw_config.data.get("output-template")
+
+    config.output_format = output_format or "fixit"
+    config.output_template = output_template or output_formats_templates["fixit"]
+
+    if options:
+        if options.output_format:
+            config.output_format = options.output_format
+
+        if options.output_template:
+            config.output_template = options.output_template
 
     return config
