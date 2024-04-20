@@ -29,8 +29,9 @@ from typing import (
 from libcst import CSTNode, CSTNodeT, FlattenSentinel, RemovalSentinel
 from libcst._add_slots import add_slots
 from libcst.metadata import CodePosition as CodePosition, CodeRange as CodeRange
-
 from packaging.version import Version
+
+__all__ = ("Version",)
 
 T = TypeVar("T")
 
@@ -50,11 +51,10 @@ Timings = Dict[str, int]
 TimingsHook = Callable[[Timings], None]
 
 VisitorMethod = Callable[[CSTNode], None]
-VisitHook = Callable[[str], ContextManager]
+
+VisitHook = Callable[[str], ContextManager[None]]
 OutputFormatType = Literal["fixit", "vscode", "json"]
 OutputFormatTypeInput = Literal[OutputFormatType, "custom"]
-
-Version
 
 
 @dataclass(frozen=True)
@@ -191,6 +191,18 @@ class Options:
 
 
 @dataclass
+class LSPOptions:
+    """
+    Command-line options to affect LSP runtime behavior
+    """
+
+    tcp: Optional[int]
+    ws: Optional[int]
+    stdio: bool = True
+    debounce_interval: float = 0.5
+
+
+@dataclass
 class Config:
     """
     Materialized configuration valid for processing a single file.
@@ -218,8 +230,8 @@ class Config:
     # post-run processing
     formatter: Optional[str] = None
 
-    def __post_init__(self):
 
+    def __post_init__(self) -> None:
         self.path = self.path.resolve()
         self.root = self.root.resolve()
 
@@ -240,7 +252,7 @@ class RawConfig:
     path: Path
     data: Dict[str, Any]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.path = self.path.resolve()
 
 
@@ -255,7 +267,7 @@ class LintViolation:
     range: CodeRange
     message: str
     node: CSTNode
-    replacement: Optional[NodeReplacement]
+    replacement: Optional[NodeReplacement[CSTNode]]
     diff: str = ""
 
     @property

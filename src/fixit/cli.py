@@ -22,7 +22,7 @@ from .config import (
     OutputFormatTypeInput,
     parse_rule,
 )
-from .ftypes import Config, Options, QualifiedRule, Tags
+from .ftypes import Config, LSPOptions, Options, QualifiedRule, Tags
 from .rule import LintRule
 from .testing import generate_lint_rule_test_cases
 from .util import capture
@@ -100,7 +100,7 @@ def main(
     rules: str,
     output_format: Optional[OutputFormatTypeInput],
     output_template: Optional[str],
-):
+) -> None:
     level = logging.WARNING
     if debug is not None:
         level = logging.DEBUG if debug else logging.ERROR
@@ -130,7 +130,7 @@ def lint(
     ctx: click.Context,
     diff: bool,
     paths: Sequence[Path],
-):
+) -> None:
     """
     lint one or more paths and return suggestions
 
@@ -182,7 +182,7 @@ def fix(
     interactive: bool,
     diff: bool,
     paths: Sequence[Path],
-):
+) -> None:
     """
     lint and autofix one or more files and return results
 
@@ -241,8 +241,42 @@ def fix(
 
 @main.command()
 @click.pass_context
+@click.option("--stdio", type=bool, default=True, help="Serve LSP over stdio")
+@click.option("--tcp", type=int, help="Port to serve LSP over")
+@click.option("--ws", type=int, help="Port to serve WS over")
+@click.option(
+    "--debounce-interval",
+    type=float,
+    default=LSPOptions.debounce_interval,
+    help="Delay in seconds for server-side debounce",
+)
+def lsp(
+    ctx: click.Context,
+    stdio: bool,
+    tcp: Optional[int],
+    ws: Optional[int],
+    debounce_interval: float,
+) -> None:
+    """
+    Start server for:
+    https://microsoft.github.io/language-server-protocol/
+    """
+    from .lsp import LSP
+
+    main_options = ctx.obj
+    lsp_options = LSPOptions(
+        tcp=tcp,
+        ws=ws,
+        stdio=stdio,
+        debounce_interval=debounce_interval,
+    )
+    LSP(main_options, lsp_options).start()
+
+
+@main.command()
+@click.pass_context
 @click.argument("rules", nargs=-1, required=True, type=str)
-def test(ctx: click.Context, rules: Sequence[str]):
+def test(ctx: click.Context, rules: Sequence[str]) -> None:
     """
     test lint rules and their VALID/INVALID cases
     """
@@ -266,7 +300,7 @@ def test(ctx: click.Context, rules: Sequence[str]):
 @main.command()
 @click.pass_context
 @click.argument("paths", nargs=-1, type=click.Path(path_type=Path))
-def upgrade(ctx: click.Context, paths: Sequence[Path]):
+def upgrade(ctx: click.Context, paths: Sequence[Path]) -> None:
     """
     upgrade lint rules and apply deprecation fixes
 
@@ -281,7 +315,7 @@ def upgrade(ctx: click.Context, paths: Sequence[Path]):
 @main.command()
 @click.pass_context
 @click.argument("paths", nargs=-1, type=click.Path(exists=True, path_type=Path))
-def debug(ctx: click.Context, paths: Sequence[Path]):
+def debug(ctx: click.Context, paths: Sequence[Path]) -> None:
     """
     print materialized configuration for paths
     """
