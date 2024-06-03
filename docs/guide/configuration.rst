@@ -129,7 +129,7 @@ The main configuration table.
     .. code-block:: toml
 
         python-version = "3.10"
-    
+
     Defaults to the currently active version of Python.
     Set to empty string ``""`` to disable target version checking.
 

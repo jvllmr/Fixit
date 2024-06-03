@@ -143,7 +143,7 @@ Custom Rules
 Fixit makes it easy to write and enable new lint rules, directly in your
 existing codebase alongside the code they will be linting.
 
-Lint rules in Fixit are built on top of `LibCST <https://libcst.rtfd.io>`_ 
+Lint rules in Fixit are built on top of `LibCST <https://libcst.rtfd.io>`_
 using a :class:`~fixit.LintRule` to combine visitors and tests together
 in a single unit. A (very) simple rule looks like this:
 
