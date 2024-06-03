@@ -72,7 +72,7 @@ the input read from STDIN, and the fixed output printed to STDOUT (ignoring
     $ fixit fix [--interactive | --automatic [--diff]] [PATH ...]
 
 .. attribute:: --interactive / -i
-    
+
     Interactively prompt the user to apply or decline suggested fixes for
     each auto-fix available. *default*
 
